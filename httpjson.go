@@ -10,7 +10,7 @@ import (
 )
 
 type Caller interface {
-	Call(method string, send, recv interface{}) error
+	Call(method, path string, send, recv interface{}) error
 }
 
 type Client struct {
@@ -91,4 +91,3 @@ func (c Client) Call(method, path string, send interface{}, recv interface{}) er
 func isNil(v interface{}) bool {
 	return v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil())
 }
-
