@@ -35,10 +35,13 @@ func (fn RoundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func New(client *http.Client, url string, header http.Header) Client {
-	defaultTransport := client.Transport
+	transport := client.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
 	client.Transport = RoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		request.Header = header
-		return defaultTransport.RoundTrip(request)
+		return transport.RoundTrip(request)
 	})
 	return Client{
 		client: client,
@@ -48,33 +51,29 @@ func New(client *http.Client, url string, header http.Header) Client {
 
 func (c Client) Call(method, path string, send interface{}, recv interface{}) error {
 	var (
-		b  []byte
-		e1 error
+		b    []byte
+		err1 error
+		buf  bytes.Buffer
 	)
 	if !isNil(send) {
-		b, e1 = json.Marshal(send)
-		if e1 != nil {
-			return e1
+		if b, err1 = json.Marshal(send); err1 != nil {
+			return err1
 		}
 	}
 	req, err := http.NewRequest(method, c.url+path, bytes.NewReader(b))
 	if err != nil {
 		return err
 	}
-
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
 	}
-
-	var buf bytes.Buffer
-	if _, err1 := io.Copy(&buf, resp.Body); err1 != nil {
-		return err1
+	if _, err = io.Copy(&buf, resp.Body); err != nil {
+		return err
 	}
 	if err = resp.Body.Close(); err != nil {
 		return err
 	}
-
 	if resp.StatusCode != http.StatusOK {
 		return HTTPError{
 			Code:   resp.StatusCode,
